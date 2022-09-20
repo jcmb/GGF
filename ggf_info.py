@@ -148,6 +148,7 @@ class GGF:
                 self._flags["GIF_UNITS_METERS"]=True
 
 
+
         if flags[2]==0: #Really should have a striuck option
 #            self._flags["GIF_INTERP_BILINEAR_DEFAULT"]=True
             return(False,102,"Interpolation not set")
@@ -171,6 +172,9 @@ class GGF:
         self._flags["GIF_FORMAT_FLOAT"]=self.bitSet(flags[3],3)
         self._flags["GIF_FORMAT_DOUBLE"]=self.bitSet(flags[3],4)
         self._flags["GIF_FORMAT_LONG_DOUBLE"]=self.bitSet(flags[3],5)
+
+        if not self._flags["GIF_FORMAT_FLOAT"]:
+           return(False,202,"Only Floats are supported at this time")
 
 
         self._flags["GIF_LAT_ASCENDING"]=self.bitSet(flags[4],0)
@@ -335,7 +339,7 @@ class GGF:
 
 def get_args():
 
-    parser = argparse.ArgumentParser(fromfile_prefix_chars="@",description='Remote.It Account Summary.')
+    parser = argparse.ArgumentParser(fromfile_prefix_chars="@",description='Geoid File Summary.')
 
     parser.add_argument("GGF", type=argparse.FileType('rb'), help="GGF File to display info on",)
     parser.add_argument('--strict', action='store_true', help='Check the file for being strictly valid.\nIf not given use default values')
@@ -377,7 +381,7 @@ def main():
             plt.xlabel('Longitude (Degrees)')
             plt.title(ggf.Name)
             h = plt.contourf(x, y, ggf.Grid)
-            plt.colorbar(h,label="Seperation (Meters)")
+            plt.colorbar(h,label="Seperation")
             if args["image"]:
                 plt.savefig(ggf.Name+".png")
             else:
