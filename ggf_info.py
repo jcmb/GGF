@@ -5,6 +5,9 @@ import sys
 import logging
 import argparse
 from struct import *
+import json
+
+from matplotlib import pyplot as plt
 
 class GGF:
 
@@ -282,6 +285,23 @@ class GGF:
         print(f"Window:  {self.GridWindow}",file=output)
         pprint(self._flags,stream=output)
 
+    def JSON(self):
+        json={}
+        json["column_count"]=self.LongGridSize
+        if self._flags["GIF_INTERP_BIQUADRATIC"]:
+            json["interpolation_method"]="bilinear"
+        if self._flags["GIF_INTERP_SPLINE"]:
+            json["interpolation_method"]="spline"
+        json["interpolation-window"]=self.GridWindow
+        json["latitude_interval"]=self.LatInterval
+        json["longitude_interval"]=self.LongInterval
+        json["name"]=self.Name
+        json["origin_latitude"]=self.LatMin
+        json["origin_longitude"]=self.LongMin
+        json["row_count"]=self.LatGridSize
+        json["separations"]=self._grid
+        return(json)
+
 
 
 def get_args():
@@ -289,6 +309,7 @@ def get_args():
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@",description='Remote.It Account Summary.')
 
     parser.add_argument("GGF", type=argparse.FileType('rb'), help="GGF File to display info on",)
+    parser.add_argument('--json', action='store_true', help='Output in JSON format.')
     parser = parser.parse_args()
     return (vars(parser))
 
@@ -297,7 +318,11 @@ def main():
     args=get_args()
     ggf=GGF(args["GGF"].read())
     if ggf.valid:
-        ggf.dump(sys.stdout)
+        if args["json"]:
+            json=ggf.JSON()
+            print(json)
+        else:
+            ggf.dump(sys.stdout)
  #       print(f"Values:  Min: {ggf.MinValue}   Max: {ggf.MaxValue}")
 #        pprint(ggf._grid)
 
