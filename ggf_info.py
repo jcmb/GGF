@@ -314,8 +314,12 @@ class GGF:
         print(f"Missing: {self.GridMissing}",file=output)
         print(f"Scalar:  {self.GridScalar}",file=output)
         print(f"Window:  {self.GridWindow}",file=output)
-        print(f"Min Values:  {self.MinValue:.3f} from Footer {self.MinValueFooter:.3f}",file=output)
-        print(f"Max Values:  {self.MaxValue:.3f} from Footer {self.MaxValueFooter:.3f}",file=output)
+        if self.version == 0:
+            print(f"Min Values:  {self.MinValue:.3f}",file=output)
+            print(f"Max Values:  {self.MaxValue:.3f}",file=output)
+        else:
+            print(f"Min Values:  {self.MinValue:.3f} from Footer {self.MinValueFooter:.3f}",file=output)
+            print(f"Max Values:  {self.MaxValue:.3f} from Footer {self.MaxValueFooter:.3f}",file=output)
         pprint(self._flags,stream=output)
 
     def JSON(self):
