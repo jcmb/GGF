@@ -204,7 +204,7 @@ class GGF:
 
 
     def parseGrid(self, ggfFile):
-        self._grid=[]
+        self._grid=None
         self._MinValue=None
         self._MaxValue=None
         for lat in range(self._LatGridSize):
@@ -225,7 +225,10 @@ class GGF:
                     if self._MaxValue == None or longs[longs_index] > self._MaxValue:
                         self._MaxValue = longs[longs_index]
 #            pprint(longs)
-            self._grid.append(longs)
+            if self._grid==None:
+                self._grid=longs
+            else:
+                self._grid+=longs
 
 
 
@@ -325,11 +328,14 @@ class GGF:
     def JSON(self):
         json={}
         json["column_count"]=self.LongGridSize
-        if self._flags["GIF_INTERP_BIQUADRATIC"]:
+
+        if self._flags["GIF_INTERP_BILINEAR"]:
             json["interpolation_method"]="bilinear"
+        if self._flags["GIF_INTERP_BIQUADRATIC"]:
+            json["interpolation_method"]="biquadratic"
         if self._flags["GIF_INTERP_SPLINE"]:
             json["interpolation_method"]="spline"
-        json["interpolation-window"]=self.GridWindow
+        json["interpolation_window"]=self.GridWindow
         json["latitude_interval"]=self.LatInterval
         json["longitude_interval"]=self.LongInterval
         json["name"]=self.Name
@@ -360,8 +366,9 @@ def main():
     ggf=GGF(args["GGF"].read(),args["strict"])
     if ggf.valid:
         if args["json"]:
-            json=ggf.JSON()
-            print(json)
+            jsonObj=ggf.JSON()
+            # Use json.dumps to properly handle null values
+            print(json.dumps(ggf.JSON()))
         elif args["plot"] or args["image"]:
             from matplotlib import pyplot as plt
             import numpy as np
