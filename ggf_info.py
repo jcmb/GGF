@@ -173,8 +173,8 @@ class GGF:
         self._flags["GIF_FORMAT_DOUBLE"]=self.bitSet(flags[3],4)
         self._flags["GIF_FORMAT_LONG_DOUBLE"]=self.bitSet(flags[3],5)
 
-        if not self._flags["GIF_FORMAT_FLOAT"]:
-           return(False,202,"Only Floats are supported at this time")
+        if not (self._flags["GIF_FORMAT_FLOAT"] or self._flags["GIF_FORMAT_LONG"]):
+           return(False,202,"Only Longs and Floats are supported at this time")
 
 
         self._flags["GIF_LAT_ASCENDING"]=self.bitSet(flags[4],0)
@@ -203,7 +203,7 @@ class GGF:
         return(True,0,"")
 
 
-    def parseGrid(self, ggfFile):
+    def parseGrid(self, ggfFile,isFloat,isScaled,scalar):
         self._grid=None
         self._MinValue=None
         self._MaxValue=None
@@ -213,7 +213,14 @@ class GGF:
 #            print(start,end,end-start)
 
 #            print("<{}f".format(self._LongGridSize))
-            longs=list(unpack("<{}f".format(self._LongGridSize),ggfFile[start: end]))
+            if isFloat :
+                longs=list(unpack("<{}f".format(self._LongGridSize),ggfFile[start: end]))
+            else:
+                longs=list(unpack("<{}l".format(self._LongGridSize),ggfFile[start: end]))
+
+            if isScaled:
+                longs= [x / scalar for x in longs]
+#                pprint(longs)
             # Has to be a list to do the assignment
 
             for longs_index in range(len(longs)):
@@ -296,7 +303,7 @@ class GGF:
             self._MinValueFooter=unpack("<d",ggfFile[gridSize + self.GRID_HEADER_LENGTH:gridSize + self.GRID_HEADER_LENGTH+8])[0]
             self._MaxValueFooter=unpack("<d",ggfFile[gridSize + self.GRID_HEADER_LENGTH+8:gridSize + self.GRID_HEADER_LENGTH+16])[0]
 
-        self.parseGrid(ggfFile)
+        self.parseGrid(ggfFile,self._flags["GIF_FORMAT_FLOAT"],self._flags["GIF_GRID_SCALED"],self.GridScalar)
 
         return(True,0,"")
 
