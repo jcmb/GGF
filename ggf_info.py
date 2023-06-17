@@ -6,7 +6,24 @@ import logging
 import argparse
 from struct import *
 import json
+import math
 
+
+def normalizeLat(Lat):
+    while Lat < -90:
+        Lat +=180
+
+    while Lat > 90:
+        Lat -=180
+    return (Lat)
+
+def normalizeLong(Long):
+    while Long < -180:
+        Long +=360
+
+    while Long > 180:
+        Long -=360
+    return (Long)
 
 
 class GGF:
@@ -23,8 +40,16 @@ class GGF:
          return self._errorString
 
     @property
+    def Flags(self):
+         return self._flags
+
+    @property
     def Grid(self):
          return self._grid
+
+    @property
+    def Grid2D(self):
+         return self._grid2D
 
     @property
     def LatInterval(self):
@@ -94,6 +119,10 @@ class GGF:
     @property
     def MaxValueFooter(self):
          return self._MaxValueFooter
+
+    @property
+    def Missing(self):
+         return self._Missing
 
     @property
     def Name(self):
@@ -179,7 +208,7 @@ class GGF:
 
         self._flags["GIF_LAT_ASCENDING"]=self.bitSet(flags[4],0)
         self._flags["GIF_LAT_DESCENDING"]=self.bitSet(flags[4],1)
-        self._flags["GIF_LAT_NOT_ASCENDING"]=not self._flags["GIF_LAT_ASCENDING"]
+#        self._flags["GIF_LAT_NOT_ASCENDING"]=not self._flags["GIF_LAT_ASCENDING"]
         if flags[4]==0:
             if strict:
                 return(False,104,"Lat direction not set")
@@ -191,12 +220,13 @@ class GGF:
 
         self._flags["GIF_LON_ASCENDING"]=self.bitSet(flags[5],0)
         self._flags["GIF_LON_DESCENDING"]=self.bitSet(flags[5],1)
-        self._flags["GIF_LON_NOT_ASCENDING"]=not self._flags["GIF_LON_ASCENDING"]
+#        self._flags["GIF_LON_NOT_ASCENDING"]=not self._flags["GIF_LON_ASCENDING"]
         if flags[5]==0:
             if strict:
                 return(False,105,"Long direction not set")
             else:
                 self._flags["GIF_LON_ASCENDING"]=True
+
 #        self._flags["GIF_LON_EASTINGS"]=self.bitSet(flags[5],2)
 #        self._flags["GIF_LON_WESTINGS"]=self.bitSet(flags[5],3)
 
@@ -207,6 +237,8 @@ class GGF:
         self._grid=None
         self._MinValue=None
         self._MaxValue=None
+        self._Missing=0
+
         for lat in range(self._LatGridSize):
             start=self.GRID_HEADER_LENGTH + lat * self._LongGridSize * 4
             end=self.GRID_HEADER_LENGTH + (lat+1) * self._LongGridSize * 4
@@ -226,11 +258,15 @@ class GGF:
             for longs_index in range(len(longs)):
                 if longs[longs_index]==self._GridMissing:
                     longs[longs_index]=None
+                    self._Missing+=1
                 else:
+
                     if self._MinValue == None or longs[longs_index] < self._MinValue:
                         self._MinValue = longs[longs_index]
+
                     if self._MaxValue == None or longs[longs_index] > self._MaxValue:
                         self._MaxValue = longs[longs_index]
+
 #            pprint(longs)
             if self._grid==None:
                 self._grid=longs
@@ -330,7 +366,10 @@ class GGF:
         else:
             print(f"Min Values:  {self.MinValue:.3f} from Footer {self.MinValueFooter:.3f}",file=output)
             print(f"Max Values:  {self.MaxValue:.3f} from Footer {self.MaxValueFooter:.3f}",file=output)
-        pprint(self._flags,stream=output)
+        print(f"Missing Values:  {self.Missing}",file=output)
+        pprint(self.Flags,stream=output)
+
+
 
     def JSON(self):
         json={}
@@ -346,8 +385,8 @@ class GGF:
         json["latitude_interval"]=self.LatInterval
         json["longitude_interval"]=self.LongInterval
         json["name"]=self.Name
-        json["origin_latitude"]=self.LatMin
-        json["origin_longitude"]=self.LongMin
+        json["origin_latitude"]=normalizeLat(self.LatMin)
+        json["origin_longitude"]=normalizeLong(self.LongMin)
         json["row_count"]=self.LatGridSize
         json["separations"]=self._grid
         return(json)
@@ -366,17 +405,45 @@ def get_args():
     parser = parser.parse_args()
     return (vars(parser))
 
+def Warnings(ggf):
+    if ggf.Flags["GIF_GRID_CHECK_MISSING"]:
+        if (ggf.MinValue < ggf.GridMissing) and (ggf.GridMissing < ggf.MaxValue):
+            print("Warning: GGF File is most likely invalid. Grid Missing Value {} is within data range  {}-{}".format(ggf.GridMissing,ggf.MinValue,ggf.MaxValue))
+    else:
+        if ggf.Missing != 0:
+            print("Warning: GGF File is has Grid Missing Value is not to be checked but the value  {} is in the data {} times.".format(ggf.GridMissing,ggf.Missing))
+
+    if ggf.version > 0:
+        if  not math.isclose(ggf.MinValue, ggf.MinValueFooter):
+            print("Warning: Minimum Value in the file {} is not close to the footer value:  {}".format(ggf.MinValue,ggf.MinValueFooter))
+
+
+        if not math.isclose(ggf.MaxValue, ggf.MaxValueFooter):
+            print("Warning: Maximum Value in the file {} is not close to the footer value:  {}".format(ggf.MaxValue,ggf.MaxValueFooter))
+
+
+
+
 
 def main():
     args=get_args()
 
     ggf=GGF(args["GGF"].read(),args["strict"])
     if ggf.valid:
+        Warnings(ggf)
+
         if args["json"]:
             jsonObj=ggf.JSON()
             # Use json.dumps to properly handle null values
             print(json.dumps(ggf.JSON()))
         elif args["plot"] or args["image"]:
+
+            if ggf.Flags["GIF_LON_DESCENDING"]:
+                sys.exit("Long descending not supported yet")
+
+            if ggf.Flags["GIF_LAT_DESCENDING"]:
+                sys.exit("Lat descending not supported yet")
+
             from matplotlib import pyplot as plt
             import numpy as np
 
@@ -398,7 +465,14 @@ def main():
             plt.ylabel('Latitude (Degrees)')
             plt.xlabel('Longitude (Degrees)')
             plt.title(ggf.Name)
-            h = plt.contourf(x, y, ggf.Grid)
+#            print(len(x))
+#            print(len(y))
+#            print(len(ggf.Grid))
+
+            GridArray=np.array(ggf.Grid,dtype=float)
+            Grid2D=GridArray.reshape(len(y),len(x))
+
+            h = plt.contourf(x, y, Grid2D)
             plt.colorbar(h,label="Seperation")
             if args["image"]:
                 plt.savefig(ggf.Name+".png")
